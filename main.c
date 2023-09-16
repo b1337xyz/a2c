@@ -14,6 +14,27 @@ static void die(xmlrpc_env * const envP) {
     }
 }
 
+static char * get_torrent_name(xmlrpc_env * const envP,
+                               xmlrpc_value * const structP)
+{
+        
+    xmlrpc_value * infoP;
+    char *name;
+    xmlrpc_decompose_value(envP, structP,
+                           "{s:S,*}",
+                           "info", &infoP
+                          );
+
+    xmlrpc_decompose_value(envP, infoP,
+                           "{s:s,*}",
+                           "name", &name
+                          );
+
+    xmlrpc_DECREF(structP);
+    xmlrpc_DECREF(infoP);
+    return name;
+}
+
 
 int main(int const argc, const char ** const argv)
 {
@@ -49,16 +70,7 @@ int main(int const argc, const char ** const argv)
                                "bittorrent", &bittorrentP
                                );
 
-        xmlrpc_decompose_value(&env, bittorrentP,
-                               "{s:S,*}",
-                               "info", &infoP
-                                );
-
-        xmlrpc_decompose_value(&env, infoP,
-                               "{s:s,*}",
-                               "name", &name
-                              );
-
+        name = get_torrent_name(&env, bittorrentP);
         printf("GID %s\n", gid);
         printf("DIR %s\n", dir);
         printf("NAME %s\n", name);
@@ -66,8 +78,7 @@ int main(int const argc, const char ** const argv)
 
         /* Dispose of our result value. */
         xmlrpc_DECREF(array_elementP);
-        xmlrpc_DECREF(bittorrentP);
-        xmlrpc_DECREF(infoP);
+
     }
 
     /* Dispose of our result value. */

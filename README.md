@@ -16,5 +16,6 @@ This is a "attempt" to port [a2cli](https://github.com/b1337xyz/scripts/tree/mai
  - https://stackoverflow.com/questions/1543829/parsing-xml-in-c?rq=3
 
 ### TODO
+- [ ] MultiCall
 - [ ] cli arguments/options
 - [ ] TUI maybe

@@ -14,28 +14,6 @@ static void die(xmlrpc_env * const envP) {
     }
 }
 
-static char * get_torrent_name(xmlrpc_env * const envP,
-                               xmlrpc_value * const structP)
-{
-        
-    xmlrpc_value * infoP;
-    char *name;
-    xmlrpc_decompose_value(envP, structP,
-                           "{s:S,*}",
-                           "info", &infoP
-                          );
-
-    xmlrpc_decompose_value(envP, infoP,
-                           "{s:s,*}",
-                           "name", &name
-                          );
-
-    xmlrpc_DECREF(structP);
-    xmlrpc_DECREF(infoP);
-    return name;
-}
-
-
 int main(int const argc, const char ** const argv)
 {
     xmlrpc_env env;
@@ -57,20 +35,18 @@ int main(int const argc, const char ** const argv)
     printf("total: %d\n", total_process);
     for (unsigned int i = 0; i < total_process; i++) {
         xmlrpc_value * array_elementP;
-        xmlrpc_value * bittorrentP;
         xmlrpc_value * infoP;
         char *dir;
         char *gid;
         char *name;
         xmlrpc_array_read_item(&env, resP, i, &array_elementP);
         xmlrpc_decompose_value(&env, array_elementP,
-                               "{s:s,s:s,s:S,*}",
+                               "{s:s,s:s,s:{s:{s:s,*},*},*}",
                                "dir", &dir,
                                "gid", &gid,
-                               "bittorrent", &bittorrentP
+                               "bittorrent", "info", "name", &name
                                );
 
-        name = get_torrent_name(&env, bittorrentP);
         printf("GID %s\n", gid);
         printf("DIR %s\n", dir);
         printf("NAME %s\n", name);
@@ -78,7 +54,6 @@ int main(int const argc, const char ** const argv)
 
         /* Dispose of our result value. */
         xmlrpc_DECREF(array_elementP);
-
     }
 
     /* Dispose of our result value. */

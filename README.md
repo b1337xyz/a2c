@@ -8,6 +8,7 @@ This is a "attempt" to port [a2cli](https://github.com/b1337xyz/scripts/tree/mai
  - https://stackoverflow.com/questions/48930853/xmlrpc-c-library-parse-an-array-with-variable-number-of-structures
 
 ### Other resources
+ - https://xmlrpc-c.sourceforge.io/
  - https://stackoverflow.com/questions/2685333/mapping-c-structure-to-an-xml-element/
  - https://sourceforge.net/p/xmlrpc-c/code/HEAD/tree/
 

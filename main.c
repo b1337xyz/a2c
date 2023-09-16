@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <xmlrpc-c/base.h>
 #include <xmlrpc-c/client.h>
 
@@ -14,6 +15,27 @@ static void die(xmlrpc_env * const envP) {
     }
 }
 
+static char * basename(char * path)
+{
+    char *delimiter = "/";
+    char *token, *lastToken;
+    token = strtok(path, delimiter);
+    while (token != NULL) {
+        lastToken = token;
+        token = strtok(NULL, delimiter);
+    }
+    return lastToken;
+}
+
+static char * get_torrent_name(xmlrpc_env * envP, xmlrpc_value * structP)
+{
+    char *name;
+    xmlrpc_decompose_value(envP, structP,
+                           "{s:{s:s,*},*}",
+                           "info", "name", &name);
+    return name;
+}
+
 int main(int const argc, const char ** const argv)
 {
     xmlrpc_env env;
@@ -21,7 +43,7 @@ int main(int const argc, const char ** const argv)
     const char * const serverUrl = "http://localhost:6800/rpc";
     const char * const methodName = "aria2.tellWaiting";
     const char * stateName;
-    unsigned int total_process;
+    unsigned int total_waiting;
 
     xmlrpc_env_init(&env);
     xmlrpc_client_init2(&env, XMLRPC_CLIENT_NO_FLAGS, NAME, VERSION, NULL, 0);
@@ -30,22 +52,50 @@ int main(int const argc, const char ** const argv)
     resP = xmlrpc_client_call(&env, serverUrl, methodName, "(ii)",
                               (xmlrpc_int32) 0, (xmlrpc_int32) 99);
     die(&env);
-    total_process = xmlrpc_array_size(&env, resP);
+    total_waiting = xmlrpc_array_size(&env, resP);
     die(&env);
-    printf("total: %d\n", total_process);
-    for (unsigned int i = 0; i < total_process; i++) {
+    printf("waiting: %d\n", total_waiting);
+    for (unsigned int i = 0; i < total_waiting; i++) {
         xmlrpc_value * array_elementP;
-        xmlrpc_value * infoP;
+        xmlrpc_value * bittorrent;
+        xmlrpc_value * files;
+        xmlrpc_value * first_file;
         char *dir;
         char *gid;
         char *name;
+        char *path;
         xmlrpc_array_read_item(&env, resP, i, &array_elementP);
-        xmlrpc_decompose_value(&env, array_elementP,
-                               "{s:s,s:s,s:{s:{s:s,*},*},*}",
-                               "dir", &dir,
-                               "gid", &gid,
-                               "bittorrent", "info", "name", &name
-                               );
+        int is_torrent = xmlrpc_struct_has_key(&env,
+                                               array_elementP, 
+                                               "qbittorrent");
+
+        if (is_torrent == 0) {
+            xmlrpc_decompose_value(&env, array_elementP,
+                                   "{s:s,s:s,s:A,s:S,*}",
+                                   "dir", &dir,
+                                   "gid", &gid,
+                                   "files", &files,
+                                   "bittorrent", &bittorrent
+                                  );
+        } else {
+            xmlrpc_decompose_value(&env, array_elementP,
+                                   "{s:s,s:s,s:A,*}",
+                                   "dir", &dir,
+                                   "gid", &gid,
+                                   "files", &files
+                                  );
+        }
+
+        xmlrpc_array_read_item(&env, files, 0, &first_file); 
+        xmlrpc_decompose_value(&env, first_file,
+                               "{s:s,*}",
+                               "path", &path);
+
+        if (is_torrent == 0) {
+            name = get_torrent_name(&env, bittorrent);
+        } else {
+            name = basename(path);
+        }
 
         printf("GID %s\n", gid);
         printf("DIR %s\n", dir);
@@ -54,6 +104,9 @@ int main(int const argc, const char ** const argv)
 
         /* Dispose of our result value. */
         xmlrpc_DECREF(array_elementP);
+        xmlrpc_DECREF(bittorrent);
+        xmlrpc_DECREF(files);
+        xmlrpc_DECREF(first_file);
     }
 
     /* Dispose of our result value. */

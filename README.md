@@ -1,3 +1,5 @@
+> This is a "attempt" to port [a2cli](https://github.com/b1337xyz/scripts/tree/main/python/a2cli)
+
 ### Compiling
 - https://tldp.org/HOWTO/XML-RPC-HOWTO/xmlrpc-howto-c.html
 - https://xmlrpc-c.sourceforge.io/doc/xmlrpc-c-config.html

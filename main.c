@@ -15,16 +15,17 @@ static void die(xmlrpc_env * const envP) {
     }
 }
 
-static char * basename(char * path)
+static const char * basename(const char * path)
 {
-    char *delimiter = "/";
-    char *token, *lastToken;
-    token = strtok(path, delimiter);
-    while (token != NULL) {
-        lastToken = token;
-        token = strtok(NULL, delimiter);
+    const char *lastSlash = NULL;
+
+    for (const char *ptr = path; *ptr != '\0'; ptr++) {
+        if (*ptr == '/') {
+            lastSlash = ptr;
+        }
     }
-    return lastToken;
+
+    return lastSlash == NULL ? path : lastSlash + 1;
 }
 
 static char * get_torrent_name(xmlrpc_env * envP, xmlrpc_value * structP)
@@ -60,16 +61,16 @@ int main(int const argc, const char ** const argv)
         xmlrpc_value * bittorrent;
         xmlrpc_value * files;
         xmlrpc_value * first_file;
-        char *dir;
-        char *gid;
-        char *name;
-        char *path;
+        const char *dir;
+        const char *gid;
+        const char *name;
+        const char *path;
         xmlrpc_array_read_item(&env, resP, i, &array_elementP);
         int is_torrent = xmlrpc_struct_has_key(&env,
                                                array_elementP, 
                                                "qbittorrent");
 
-        if (is_torrent == 0) {
+        if (is_torrent == 1) {
             xmlrpc_decompose_value(&env, array_elementP,
                                    "{s:s,s:s,s:A,s:S,*}",
                                    "dir", &dir,
@@ -78,6 +79,7 @@ int main(int const argc, const char ** const argv)
                                    "bittorrent", &bittorrent
                                   );
         } else {
+            xmlrpc_value * uris;
             xmlrpc_decompose_value(&env, array_elementP,
                                    "{s:s,s:s,s:A,*}",
                                    "dir", &dir,
@@ -87,11 +89,28 @@ int main(int const argc, const char ** const argv)
         }
 
         xmlrpc_array_read_item(&env, files, 0, &first_file); 
-        xmlrpc_decompose_value(&env, first_file,
-                               "{s:s,*}",
-                               "path", &path);
+        if (xmlrpc_struct_has_key(&env, first_file, "path") == 1) {
+            xmlrpc_decompose_value(&env, first_file,
+                                   "{s:s,*}",
+                                   "path", &path);
+        } else {
+            xmlrpc_value * uris;
+            xmlrpc_value * first_uri;
+            xmlrpc_decompose_value(&env, first_file,
+                                   "{s:A,*}",
+                                   "uris", &uris);
 
-        if (is_torrent == 0) {
+            if (xmlrpc_array_size(&env, uris) > 0) {
+                xmlrpc_array_read_item(&env, uris, 0, &first_uri); 
+                xmlrpc_decompose_value(&env, first_uri,
+                                       "{s:s,*}",
+                                       "uri", &path);
+                xmlrpc_DECREF(uris);
+                xmlrpc_DECREF(first_uri);
+            }
+        }
+
+        if (is_torrent == 1) {
             name = get_torrent_name(&env, bittorrent);
         } else {
             name = basename(path);
@@ -100,13 +119,14 @@ int main(int const argc, const char ** const argv)
         printf("GID %s\n", gid);
         printf("DIR %s\n", dir);
         printf("NAME %s\n", name);
+        printf("PATH %s\n", path);
         die(&env);
 
         /* Dispose of our result value. */
         xmlrpc_DECREF(array_elementP);
-        xmlrpc_DECREF(bittorrent);
         xmlrpc_DECREF(files);
         xmlrpc_DECREF(first_file);
+        if (is_torrent == 1) xmlrpc_DECREF(bittorrent);
     }
 
     /* Dispose of our result value. */

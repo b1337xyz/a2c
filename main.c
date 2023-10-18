@@ -3,9 +3,56 @@
 #include <string.h>
 #include <xmlrpc-c/base.h>
 #include <xmlrpc-c/client.h>
+#include <argp.h>
+#include <stdbool.h>
 
 #define NAME "aria2 rpc client"
 #define VERSION "1.0"
+
+const char *argp_program_version = VERSION;
+static char doc[] = NAME;
+static char args_doc[] = "PORT";
+
+struct arguments {
+    int port;
+};
+
+static struct argp_option options[] = {
+    {"port", 'p', "PORT", 0, "Specify the port number (default is 6800)", 0},
+    {0}
+};
+
+static error_t parse_opt(int key, char *arg, struct argp_state *state) {
+    struct arguments *arguments = state->input;
+
+    switch (key) {
+        case 'p':
+        case 'P':
+            arguments->port = atoi(arg);
+            break;
+
+        case ARGP_KEY_ARG:
+            if (state->arg_num == 0) {
+                arguments->port = atoi(arg);
+            } else {
+                argp_usage(state);
+            }
+            break;
+
+        case ARGP_KEY_END:
+            if (state->arg_num > 1) {
+                argp_failure(state, 1, 0, "Only one PORT is allowed.");
+            }
+            break;
+
+        default:
+            return ARGP_ERR_UNKNOWN;
+    }
+    return 0;
+}
+
+static struct argp argp = {options, parse_opt, args_doc, doc, 0, 0, 0};
+
 
 static void die(xmlrpc_env * const envP) {
     if (envP->fault_occurred) {
@@ -37,24 +84,41 @@ static char * get_torrent_name(xmlrpc_env * envP, xmlrpc_value * structP)
     return name;
 }
 
-int main(int const argc, const char ** const argv)
+int main(int argc, char *argv[])
 {
+    struct arguments arguments;
+    arguments.port = 6800; // Set default port number
+
+    argp_parse(&argp, argc, argv, 0, 0, &arguments);
+
+    printf("Port number: %d\n", arguments.port);
+
     xmlrpc_env env;
     xmlrpc_value * resP;
-    const char * const serverUrl = "http://localhost:6800/rpc";
-    const char * const methodName = "aria2.tellWaiting";
+
+    char serverUrl[30]; // Adjust the size as needed
+    snprintf(serverUrl, sizeof(serverUrl), "http://localhost:%d/rpc", arguments.port);
+    const char * const methodName = "aria2.tellActive";
+    /* const char * const methodName = "aria2.tellWaiting"; */
     const char * stateName;
     unsigned int total_waiting;
 
     xmlrpc_env_init(&env);
-    xmlrpc_client_init2(&env, XMLRPC_CLIENT_NO_FLAGS, NAME, VERSION, NULL, 0);
+    xmlrpc_client_init2(&env, XMLRPC_CLIENT_NO_FLAGS,
+                        NAME, VERSION, NULL, 0);
     die(&env);
     printf("server: %s\nmethod: %s\n", serverUrl, methodName);
-    resP = xmlrpc_client_call(&env, serverUrl, methodName, "(ii)",
-                              (xmlrpc_int32) 0, (xmlrpc_int32) 99);
+
+    // tellWaiting
+    /* resP = xmlrpc_client_call(&env, serverUrl, methodName, "(ii)", */
+    /*                           (xmlrpc_int32) 0, (xmlrpc_int32) 99); */
+
+    resP = xmlrpc_client_call(&env, serverUrl, methodName, "()");
     die(&env);
+
     total_waiting = xmlrpc_array_size(&env, resP);
     die(&env);
+
     printf("waiting: %d\n", total_waiting);
     for (unsigned int i = 0; i < total_waiting; i++) {
         xmlrpc_value * array_elementP;
@@ -65,10 +129,14 @@ int main(int const argc, const char ** const argv)
         const char *gid;
         const char *name;
         const char *path;
+
         xmlrpc_array_read_item(&env, resP, i, &array_elementP);
+        die(&env);
+
         int is_torrent = xmlrpc_struct_has_key(&env,
                                                array_elementP, 
                                                "qbittorrent");
+        die(&env);
 
         if (is_torrent == 1) {
             xmlrpc_decompose_value(&env, array_elementP,
@@ -87,6 +155,7 @@ int main(int const argc, const char ** const argv)
                                    "files", &files
                                   );
         }
+        die(&env);
 
         xmlrpc_array_read_item(&env, files, 0, &first_file); 
         if (xmlrpc_struct_has_key(&env, first_file, "path") == 1) {
@@ -109,9 +178,11 @@ int main(int const argc, const char ** const argv)
                 xmlrpc_DECREF(first_uri);
             }
         }
+        die(&env);
 
         if (is_torrent == 1) {
             name = get_torrent_name(&env, bittorrent);
+            die(&env);
         } else {
             name = basename(path);
         }
@@ -120,13 +191,13 @@ int main(int const argc, const char ** const argv)
         printf("DIR %s\n", dir);
         printf("NAME %s\n", name);
         printf("PATH %s\n", path);
-        die(&env);
 
         /* Dispose of our result value. */
         xmlrpc_DECREF(array_elementP);
         xmlrpc_DECREF(files);
         xmlrpc_DECREF(first_file);
         if (is_torrent == 1) xmlrpc_DECREF(bittorrent);
+        die(&env);
     }
 
     /* Dispose of our result value. */

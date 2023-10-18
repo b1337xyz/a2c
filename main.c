@@ -135,7 +135,7 @@ int main(int argc, char *argv[])
 
         int is_torrent = xmlrpc_struct_has_key(&env,
                                                array_elementP, 
-                                               "qbittorrent");
+                                               "bittorrent");
         die(&env);
 
         if (is_torrent == 1) {
